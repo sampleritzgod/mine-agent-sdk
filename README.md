@@ -80,6 +80,22 @@ INPUT -> MODEL -> TOOL DETECTION -> EXECUTE TOOL -> STORE RESULT
 
 Each run records an explicit `RuntimeState`, emits lifecycle events, stores tool output as tool messages, and produces a `RunTrace` with timing, tokens, cost, retries, tool calls, handoffs, errors, and final output.
 
+## Streaming
+
+`agent.stream()` runs the exact same loop as `agent.run()` — it just drives each model step through `provider.stream()` and yields text as it arrives, finishing with a `completed` event that carries the same `RunResult` `agent.run()` would return:
+
+```ts
+for await (const event of agent.stream("Add 4 and 6.")) {
+  if (event.type === "chunk") {
+    process.stdout.write(event.delta);
+  } else {
+    console.log("\n" + event.result.output);
+  }
+}
+```
+
+Tool detection, execution, guardrails, tracing, and events all behave identically to `agent.run()`; tool-call turns just don't produce chunk events since there's no text to stream.
+
 ## Events
 
 Subscribe through `EventBus`:
@@ -97,7 +113,7 @@ Minimum emitted events:
 - `tool.started`, `tool.finished`, `tool.failed`
 - `model.request`, `model.response`
 - `handoff.started`, `handoff.completed`
-- `guardrail.triggered`
+- `guardrail.triggered`, `guardrail.modified`
 
 ## Memory Layers
 
@@ -116,9 +132,22 @@ npm install
 npm test
 ```
 
+## Examples
+
+```bash
+npm run example:basic     # single tool call, end to end
+npm run example:tool-use  # multiple tools, retries, event logging
+npm run example:streaming # ModelProvider.stream() directly, and agent.stream() driving the tool loop
+npm run example:handoff   # one agent handing off full context to another
+```
+
+- [`examples/basic.ts`](examples/basic.ts)
+- [`examples/tool-use.ts`](examples/tool-use.ts)
+- [`examples/streaming.ts`](examples/streaming.ts)
+- [`examples/multi-agent-handoff.ts`](examples/multi-agent-handoff.ts)
+
 ## Documentation
 
 - [API docs](docs/API.md)
 - [Migration guide](docs/MIGRATION.md)
 - [Changelog](CHANGELOG.md)
-- [Examples](examples/basic.ts)

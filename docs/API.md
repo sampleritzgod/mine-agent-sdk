@@ -67,6 +67,28 @@ console.log(result.trace.toolCalls);
 
 Possible errors: `ProviderError`, `GuardrailError`, `MaxIterationsError`, `ToolExecutionError` surfaced through failed tool results, or handler-specific errors.
 
+## `agent.stream(input, options)`
+
+Description: Runs the same iterative loop as `agent.run()` — model call, tool detection, tool execution, store result, repeat — but drives each model step through `provider.stream()` instead of `provider.generate()`. Yields `AgentStreamChunkEvent`s as text arrives, and finishes with a single `AgentStreamCompletedEvent` carrying the exact `RunResult` that `agent.run()` would have returned for the same input. Tool-call turns and turns with no text content yield no chunk events for that turn. Guardrails, tracing, and event emissions (`run.started`, `model.request`, `model.response`, `tool.*`, `run.completed`/`run.failed`) all fire identically to `agent.run()`; an output guardrail rewrite lands in the completed event and in persisted session history, not in chunks already streamed to the caller.
+
+Parameters: Same as `agent.run(input, options)`.
+
+Returns: `AsyncGenerator<AgentStreamEvent, RunResult, void>`, where `AgentStreamEvent` is `{ type: "chunk", runId, iteration, delta }` or `{ type: "completed", result }`. Must be consumed (e.g. with `for await`) to drive the run — nothing executes until iterated.
+
+Example:
+
+```ts
+for await (const event of agent.stream("Summarize this")) {
+  if (event.type === "chunk") {
+    process.stdout.write(event.delta);
+  } else {
+    console.log("\n", event.result.trace.toolCalls, "tool calls");
+  }
+}
+```
+
+Possible errors: Same as `agent.run()` — `ProviderError` (including failures raised mid-stream by `provider.stream()`), `GuardrailError`, `MaxIterationsError`, handler-specific errors — surfaced by rejecting the pending `next()` call, so a `for await` loop throws exactly like an awaited `agent.run()` would.
+
 ## `createTool(tool)`
 
 Description: Identity helper that preserves zod input inference for tool definitions.
@@ -189,7 +211,7 @@ Possible errors: Storage adapter implementations may throw IO-specific errors.
 
 ## `Guardrail`
 
-Description: Input or output policy hook.
+Description: Input or output policy hook that can block or rewrite the value flowing through a run.
 
 Parameters:
 
@@ -197,32 +219,35 @@ Parameters:
 - `phase`: `"input"` or `"output"`
 - `execute(value, context)`
 
-Returns: `GuardrailResult` with `allowed`, optional `reason`, and optional metadata.
+Returns: `GuardrailResult` with `allowed`, optional `reason`, optional `metadata`, and optional `value`. Setting `value` on an allowed result substitutes it for the checked value — an input guardrail's `value` reaches the model and session history, an output guardrail's `value` becomes `RunResult.output` and replaces the persisted assistant message. Guardrails in the same phase run in order, each seeing the previous guardrail's `value`.
 
 Example:
 
 ```ts
-const guardrail = {
-  name: "no-empty-output",
-  phase: "output",
-  execute: value => ({ allowed: String(value).length > 0 }),
+const redactCardNumbers = {
+  name: "redact-card-numbers",
+  phase: "input",
+  execute: value => ({
+    allowed: true,
+    value: String(value).replace(/\d{4}-\d{4}-\d{4}-\d{4}/g, "[redacted]"),
+  }),
 };
 ```
 
-Possible errors: Blocked guardrails throw `GuardrailError` and emit `guardrail.triggered`.
+Possible errors: Blocked guardrails throw `GuardrailError` and emit `guardrail.triggered`. Guardrails that set `value` emit `guardrail.modified` instead.
 
 ## `HandoffDefinition`
 
-Description: Named handler for delegating a run to another subsystem or agent.
+Description: Named handler for delegating a run to another subsystem or agent. The receiving handler gets the full conversation so far via `context.messages`, so it can pick up exactly where the caller left off.
 
 Parameters:
 
 - `name`
 - `description`
-- `execute(request, context)`
+- `execute(request, context)`: `context` has `runId`, `metadata`, and `messages` (the caller's conversation, excluding the caller's own transient instructions message).
 - `metadata`
 
-Returns: `HandoffResult`.
+Returns: `HandoffResult` with `output` and optional `metadata`.
 
 Example:
 
@@ -231,7 +256,11 @@ const billingHandoff = {
   name: "billing",
   description: "Routes billing questions.",
   metadata: {},
-  execute: request => ({ output: `billing:${request.input}` }),
+  async execute(request, context) {
+    const billingAgent = new Agent({ name: "billing-agent", instructions: "...", provider });
+    const result = await billingAgent.run(context.messages);
+    return { output: result.output };
+  },
 };
 ```
 
@@ -239,26 +268,36 @@ Possible errors: Missing targets throw `ConfigurationError`. Handler failures fa
 
 ## `AgentPlugin`
 
-Description: Extension point for registering tools, guardrails, handoffs, or replacing the provider before agent construction.
+Description: Extension point with a full lifecycle: register → init → hook into events/runtime → teardown.
 
 Parameters:
 
 - `name`
 - `version`
-- `setup(context)`
+- `setup(context)`: Registers tools, guardrails, handoffs, or replaces the provider. `context.events` is the agent's real `EventBus`, so a plugin can also subscribe to runtime events here.
+- `init?(context)`: Optional. Runs once after every plugin's `setup()` has finished. `context` carries the full merged `tools`/`guardrails`/`handoffs`/`provider` from all plugins, not just this one — useful for cross-cutting setup that needs to see the final registry.
+- `teardown?(context)`: Optional. Runs when `agent.teardown()` is called, in reverse registration order (last plugin set up tears down first).
 
-Returns: Nothing or a promise.
+Returns: Nothing or a promise, for each hook.
 
 Example:
 
 ```ts
-const plugin = {
-  name: "math-tools",
+const auditPlugin = {
+  name: "audit",
   setup(ctx) {
     ctx.registerTool(addTool);
   },
+  init(ctx) {
+    console.log(`agent has ${ctx.tools.length} tools registered`);
+  },
+  teardown() {
+    console.log("audit plugin cleaned up");
+  },
 };
-const agent = await Agent.create({ name: "agent", provider, plugins: [plugin] });
+const agent = await Agent.create({ name: "agent", provider, plugins: [auditPlugin] });
+await agent.run("hi");
+await agent.teardown();
 ```
 
-Possible errors: Plugin setup errors reject `Agent.create`.
+Possible errors: Errors from `setup()` or `init()` reject `Agent.create`. Errors from `teardown()` reject `agent.teardown()`.

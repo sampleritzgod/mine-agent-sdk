@@ -1,5 +1,6 @@
 import { ConfigurationError } from "../errors/sdk-error";
 import type { Metadata } from "../types/json";
+import type { Message } from "../types/message";
 import type { HandoffRequest } from "../types/model";
 import type { HandoffDefinition, HandoffResult } from "./handoff";
 
@@ -27,7 +28,12 @@ export class HandoffManager {
     return this.handoffs.has(name);
   }
 
-  async execute(request: HandoffRequest, runId: string, metadata: Metadata = {}): Promise<HandoffResult> {
+  async execute(
+    request: HandoffRequest,
+    runId: string,
+    metadata: Metadata = {},
+    messages: Message[] = [],
+  ): Promise<HandoffResult> {
     const handoff = this.handoffs.get(request.target);
     if (!handoff) {
       throw new ConfigurationError(`No handoff registered for "${request.target}".`, {
@@ -38,6 +44,7 @@ export class HandoffManager {
     return handoff.execute(request, {
       runId,
       metadata,
+      messages,
     });
   }
 }

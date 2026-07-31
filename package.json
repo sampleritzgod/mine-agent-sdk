@@ -24,8 +24,16 @@
     "tools",
     "orchestration"
   ],
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "README.md",
@@ -34,9 +42,14 @@
   ],
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test dist/tests/unit/*.test.js dist/tests/integration/*.test.js dist/tests/failure/*.test.js dist/tests/edge/*.test.js dist/tests/concurrency/*.test.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "build": "tsup",
+    "test": "node --import tsx --test tests/unit/*.test.ts tests/integration/*.test.ts tests/failure/*.test.ts tests/edge/*.test.ts tests/concurrency/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build",
+    "example:basic": "tsx examples/basic.ts",
+    "example:tool-use": "tsx examples/tool-use.ts",
+    "example:streaming": "tsx examples/streaming.ts",
+    "example:handoff": "tsx examples/multi-agent-handoff.ts"
   },
   "dependencies": {
     "eventemitter3": "^5.0.1",
@@ -44,6 +57,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.1",
     "typescript": "^5.8.0"
   },
   "peerDependenciesMeta": {

@@ -14,6 +14,8 @@ export interface PluginHostResult {
 }
 
 export class PluginHost {
+  private result: PluginHostResult | undefined;
+
   constructor(
     private readonly plugins: AgentPlugin[] = [],
     private readonly events: EventBus = new EventBus(),
@@ -46,6 +48,31 @@ export class PluginHost {
       });
     }
 
+    this.result = result;
     return result;
+  }
+
+  async init(): Promise<void> {
+    const result = this.result ?? { tools: [], guardrails: [], handoffs: [] };
+
+    for (const plugin of this.plugins) {
+      await plugin.init?.({
+        events: this.events,
+        metadata: this.metadata,
+        tools: result.tools,
+        guardrails: result.guardrails,
+        handoffs: result.handoffs,
+        ...(result.provider ? { provider: result.provider } : {}),
+      });
+    }
+  }
+
+  async teardown(): Promise<void> {
+    for (const plugin of [...this.plugins].reverse()) {
+      await plugin.teardown?.({
+        events: this.events,
+        metadata: this.metadata,
+      });
+    }
   }
 }

@@ -14,8 +14,27 @@ export interface PluginContext {
   metadata: Metadata;
 }
 
+export interface PluginInitContext {
+  events: EventBus;
+  metadata: Metadata;
+  // The full merged registry from every plugin's setup(), not just this plugin's own.
+  tools: readonly AnyTool[];
+  guardrails: readonly Guardrail[];
+  handoffs: readonly HandoffDefinition[];
+  provider?: ModelProvider;
+}
+
+export interface PluginTeardownContext {
+  events: EventBus;
+  metadata: Metadata;
+}
+
 export interface AgentPlugin {
   name: string;
   version?: string;
   setup(context: PluginContext): void | Promise<void>;
+  // Runs once after every plugin has registered, so a plugin can react to the full set and hook into runtime events.
+  init?(context: PluginInitContext): void | Promise<void>;
+  // Runs in reverse registration order when the owning Agent is torn down.
+  teardown?(context: PluginTeardownContext): void | Promise<void>;
 }

@@ -80,6 +80,26 @@ INPUT -> MODEL -> TOOL DETECTION -> EXECUTE TOOL -> STORE RESULT
 
 Each run records an explicit `RuntimeState`, emits lifecycle events, stores tool output as tool messages, and produces a `RunTrace` with timing, tokens, cost, retries, tool calls, handoffs, errors, and final output.
 
+## Providers
+
+The core package only ever needs `zod` and `eventemitter3` — real model providers live behind subpath exports so their SDKs stay optional peer dependencies, not part of every install.
+
+```bash
+npm install openai   # only needed if you use OpenAIProvider
+```
+
+```ts
+import { Agent } from "mine-agent-sdk";
+import { OpenAIProvider } from "mine-agent-sdk/providers/openai";
+
+const agent = new Agent({
+  name: "assistant",
+  provider: new OpenAIProvider({ model: "gpt-4o-mini" }), // reads OPENAI_API_KEY by default
+});
+```
+
+`OpenAIProvider` maps SDK messages/tools/responses to and from the OpenAI Chat Completions API: tool calls, streaming (including reconstructing fragmented tool-call arguments across chunks), `responseFormat` (`text` / `json_object` / `json_schema`), and image inputs via `UserMessage.images`. It supports `openai` `^4.20.0 || ^5.0.0 || ^6.0.0` — `openai@7` requires Node 22+, which is newer than this SDK's own `engines.node: >=20`, so pin below `7.0.0` if you're on Node 20 or 21.
+
 ## Streaming
 
 `agent.stream()` runs the exact same loop as `agent.run()` — it just drives each model step through `provider.stream()` and yields text as it arrives, finishing with a `completed` event that carries the same `RunResult` `agent.run()` would return:
@@ -139,12 +159,14 @@ npm run example:basic     # single tool call, end to end
 npm run example:tool-use  # multiple tools, retries, event logging
 npm run example:streaming # ModelProvider.stream() directly, and agent.stream() driving the tool loop
 npm run example:handoff   # one agent handing off full context to another
+npm run example:openai    # real OpenAIProvider request (needs OPENAI_API_KEY + npm install openai)
 ```
 
 - [`examples/basic.ts`](examples/basic.ts)
 - [`examples/tool-use.ts`](examples/tool-use.ts)
 - [`examples/streaming.ts`](examples/streaming.ts)
 - [`examples/multi-agent-handoff.ts`](examples/multi-agent-handoff.ts)
+- [`examples/openai-provider.ts`](examples/openai-provider.ts)
 
 ## Documentation
 

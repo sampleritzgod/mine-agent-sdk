@@ -32,6 +32,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./providers/openai": {
+      "types": "./dist/providers/openai-provider.d.ts",
+      "import": "./dist/providers/openai-provider.mjs",
+      "require": "./dist/providers/openai-provider.js"
     }
   },
   "files": [
@@ -49,7 +54,8 @@
     "example:basic": "tsx examples/basic.ts",
     "example:tool-use": "tsx examples/tool-use.ts",
     "example:streaming": "tsx examples/streaming.ts",
-    "example:handoff": "tsx examples/multi-agent-handoff.ts"
+    "example:handoff": "tsx examples/multi-agent-handoff.ts",
+    "example:openai": "tsx examples/openai-provider.ts"
   },
   "dependencies": {
     "eventemitter3": "^5.0.1",
@@ -61,6 +67,9 @@
     "tsup": "^8.5.1",
     "tsx": "^4.23.1",
     "typescript": "^5.8.0"
+  },
+  "peerDependencies": {
+    "openai": "^4.20.0 || ^5.0.0 || ^6.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

@@ -146,9 +146,9 @@ Description: Interface implemented by every model backend.
 
 Parameters:
 
-- `generate(request)`: Full model response.
+- `generate(request)`: Full model response. `request` is a `ModelRequest`: `messages`, `tools`, `metadata`, and an optional `responseFormat` (`{type:"text"}` / `{type:"json_object"}` / `{type:"json_schema", name, schema, strict?}`) for structured output.
 - `stream(request)`: Async iterable of stream chunks.
-- Capability methods: `supportsTools`, `supportsStructuredOutput`, `supportsImages`, `supportsAudio`.
+- Capability methods: `supportsTools`, `supportsStructuredOutput`, `supportsImages`, `supportsAudio`. `AgentRuntime` checks `supportsTools`/`supportsImages` itself and throws `ConfigurationError` before calling the provider if a run needs a capability it lacks (registered tools, or a `UserMessage` with non-empty `images`).
 
 Returns: Provider-specific `ModelResponse` or `ModelStreamChunk` values normalized to SDK types.
 
@@ -168,6 +168,60 @@ class MyProvider implements ModelProvider {
 ```
 
 Possible errors: Provider implementations may throw; runtime wraps generation failures in `ProviderError`.
+
+## `OpenAIProvider`
+
+Description: Real `ModelProvider` backed by the `openai` SDK. Import from the `mine-agent-sdk/providers/openai` subpath, not the root package — this keeps `openai` an optional peer dependency instead of a hard dependency of every install.
+
+Parameters:
+
+- `new OpenAIProvider({ model, apiKey?, baseURL?, organization?, client? })`: `apiKey` defaults to `OPENAI_API_KEY`. Pass `client` (a pre-built or fake `OpenAI` instance) to override construction entirely — this is also how tests inject a test double instead of hitting the network.
+
+Behavior:
+
+- Maps `Message[]` to/from OpenAI chat messages, including multi-turn tool-call history (`AssistantMessage.toolCalls` ↔ `tool_calls`, `ToolMessage` ↔ a `role: "tool"` message).
+- `generate()` uses `chat.completions.create()`; `stream()` uses it with `stream: true` and reconstructs fragmented streaming tool-call deltas (OpenAI only sends a tool call's `id`/`name` on its first chunk) so every `ModelStreamChunk.toolCallDelta` your code sees carries a stable `id`.
+- `request.responseFormat` maps to OpenAI's `response_format` (`text` / `json_object` / `json_schema`).
+- `UserMessage.images` (an array of `{ url }`, http(s) or `data:`) maps to multipart `image_url` content parts.
+- Tool parameter schemas are converted from zod to JSON Schema via `zodToJsonSchema` — see below for its coverage.
+- `supportsTools`/`supportsStructuredOutput`/`supportsImages` all return `true`; `supportsAudio` returns `false` (not implemented).
+- Token usage maps to `ModelUsage`; there's no built-in `costUsd` (pricing changes too often to hardcode) — compute it yourself from `usage` if needed.
+
+Returns: A `ModelProvider` usable anywhere one is accepted (`AgentConfig.provider`).
+
+Example:
+
+```ts
+import { Agent } from "mine-agent-sdk";
+import { OpenAIProvider } from "mine-agent-sdk/providers/openai";
+
+const agent = new Agent({
+  name: "assistant",
+  provider: new OpenAIProvider({ model: "gpt-4o-mini" }),
+});
+const result = await agent.run("Hello");
+```
+
+Possible errors: Network/API errors from the `openai` SDK propagate out of `generate()`/`stream()` and are wrapped in `ProviderError` by `AgentRuntime`. Requires `openai` `^4.20.0 || ^5.0.0 || ^6.0.0` installed (`openai@7` needs Node 22+, newer than this SDK's own `engines.node: >=20`).
+
+## `zodToJsonSchema`
+
+Description: Converts a zod schema into a JSON Schema object, used internally by provider adapters to build a tool's `parameters`/`input_schema` payload.
+
+Parameters:
+
+- `schema`: A `z.ZodTypeAny`.
+
+Returns: A `JsonSchema` (`Record<string, unknown>`). Covers `object` (with `required`/`additionalProperties: false`), `string`, `number`, `boolean`, `null`, `array`, `enum`, `nativeEnum`, `union` (as `anyOf`), `record`, `literal` (as `const`), and `optional`/`nullable`/`default` wrappers (nullable becomes a `type` array including `"null"`). Descriptions set via `.describe()` are preserved. Zod effects (`refine`/`transform`), tuples, and intersections fall back to an unconstrained `{}`.
+
+Example:
+
+```ts
+zodToJsonSchema(z.object({ city: z.string(), limit: z.number().optional() }));
+// { type: "object", properties: { city: {type:"string"}, limit: {type:"number"} }, required: ["city"], additionalProperties: false }
+```
+
+Possible errors: None — unrecognized zod types degrade to `{}` rather than throwing.
 
 ## `EventBus`
 

@@ -118,8 +118,10 @@ export class AgentRuntime {
 
     try {
       const rawInputMessages = this.normalizeInput(input);
+      this.assertImagesSupported(rawInputMessages);
       const inputMessages = await this.guardrails.check("input", rawInputMessages, runId, metadata);
       state.addMessages(await this.prepareMessages(inputMessages, options.sessionId));
+      const responseFormat = options.responseFormat ?? this.config.responseFormat;
 
       while (state.iteration < this.maxIterations) {
         state.nextIteration();
@@ -128,6 +130,7 @@ export class AgentRuntime {
           messages: [...state.messages],
           tools: this.tools.toProviderTools(),
           metadata,
+          ...(responseFormat ? { responseFormat } : {}),
         };
         this.events.emit("model.request", { runId, request });
 
@@ -324,6 +327,13 @@ export class AgentRuntime {
       messages: [...state.messages],
       trace,
     };
+  }
+
+  private assertImagesSupported(messages: Message[]): void {
+    const hasImages = messages.some(message => message.role === "user" && (message.images?.length ?? 0) > 0);
+    if (hasImages && !this.config.provider.supportsImages()) {
+      throw new ConfigurationError(`Provider "${this.config.provider.id}" does not support images.`);
+    }
   }
 
   private normalizeInput(input: AgentInput): Message[] {

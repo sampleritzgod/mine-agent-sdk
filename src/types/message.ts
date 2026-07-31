@@ -13,8 +13,14 @@ export interface SystemMessage extends BaseMessage {
   role: "system";
 }
 
+export interface MessageImagePart {
+  /** An http(s) URL or a data: URI. */
+  url: string;
+}
+
 export interface UserMessage extends BaseMessage {
   role: "user";
+  images?: MessageImagePart[];
 }
 
 export interface AssistantMessage extends BaseMessage {
@@ -38,8 +44,13 @@ export function systemMessage(content: string, metadata?: Metadata): SystemMessa
   return { role: "system", content, ...(metadata ? { metadata } : {}) };
 }
 
-export function userMessage(content: string, metadata?: Metadata): UserMessage {
-  return { role: "user", content, ...(metadata ? { metadata } : {}) };
+export function userMessage(content: string, metadata?: Metadata, images?: MessageImagePart[]): UserMessage {
+  return {
+    role: "user",
+    content,
+    ...(images && images.length > 0 ? { images } : {}),
+    ...(metadata ? { metadata } : {}),
+  };
 }
 
 export function assistantMessage(

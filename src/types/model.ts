@@ -22,6 +22,11 @@ export interface HandoffRequest {
   metadata?: Metadata;
 }
 
+export type ModelResponseFormat =
+  | { type: "text" }
+  | { type: "json_object" }
+  | { type: "json_schema"; name: string; schema: unknown; strict?: boolean };
+
 export interface ModelUsage {
   inputTokens?: number;
   outputTokens?: number;
@@ -33,6 +38,7 @@ export interface ModelRequest {
   messages: Message[];
   tools: ProviderToolDefinition[];
   metadata: Metadata;
+  responseFormat?: ModelResponseFormat;
 }
 
 export interface ModelResponse {

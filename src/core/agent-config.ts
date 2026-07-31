@@ -7,6 +7,7 @@ import type { ModelProvider } from "../providers/model-provider";
 import type { AnyTool } from "../tools/tool";
 import type { Metadata } from "../types/json";
 import type { Message } from "../types/message";
+import type { ModelResponseFormat } from "../types/model";
 import type { RunTrace } from "../tracing/run-trace";
 
 export interface AgentConfig {
@@ -21,6 +22,8 @@ export interface AgentConfig {
   plugins?: AgentPlugin[];
   maxIterations?: number;
   metadata?: Metadata;
+  /** Default structured-output format for every run; overridable per-run via RunOptions. */
+  responseFormat?: ModelResponseFormat;
 }
 
 export type AgentInput = string | Message[];
@@ -28,6 +31,7 @@ export type AgentInput = string | Message[];
 export interface RunOptions {
   sessionId?: string;
   metadata?: Metadata;
+  responseFormat?: ModelResponseFormat;
 }
 
 export interface RunResult {

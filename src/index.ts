@@ -11,6 +11,7 @@ export * from "./providers/scripted-provider";
 export * from "./tools/tool";
 export * from "./tools/tool-executor";
 export * from "./tools/tool-registry";
+export * from "./tools/zod-json-schema";
 
 export * from "./events/event-bus";
 

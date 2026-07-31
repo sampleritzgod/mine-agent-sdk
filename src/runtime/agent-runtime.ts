@@ -13,7 +13,7 @@ import { ToolRegistry } from "../tools/tool-registry";
 import type { ToolExecutionResult } from "../tools/tool";
 import type { AgentConfig, AgentInput, RunOptions, RunResult } from "../core/agent-config";
 import type { Metadata } from "../types/json";
-import type { HandoffRequest, ModelRequest, ToolCall } from "../types/model";
+import type { HandoffRequest, ModelRequest, ModelResponse, ToolCall } from "../types/model";
 import {
   assistantMessage,
   systemMessage,
@@ -24,9 +24,26 @@ import {
 import { serializeError } from "../utils/errors";
 import { safeJsonStringify } from "../utils/json";
 import { durationMs, nowIso } from "../utils/time";
+import { accumulateModelStream } from "./model-stream-accumulator";
 import { RuntimeState } from "./runtime-state";
 
 const TRANSIENT_METADATA_KEY = "sdk.transient";
+
+/** One incremental text delta from the model mid-run, mirroring ModelStreamChunk. */
+export interface AgentStreamChunkEvent {
+  type: "chunk";
+  runId: string;
+  iteration: number;
+  delta: string;
+}
+
+/** Terminal event carrying the same RunResult agent.run() would have returned. */
+export interface AgentStreamCompletedEvent {
+  type: "completed";
+  result: RunResult;
+}
+
+export type AgentStreamEvent = AgentStreamChunkEvent | AgentStreamCompletedEvent;
 
 export class AgentRuntime {
   private readonly events: EventBus;
@@ -54,6 +71,31 @@ export class AgentRuntime {
   }
 
   async run(input: AgentInput, options: RunOptions = {}): Promise<RunResult> {
+    return this.drive(this.execute(input, options, false));
+  }
+
+  /**
+   * Same iterative run loop as run(), but drives the model step through
+   * provider.stream() and yields text as it arrives. The final "completed"
+   * event carries the same RunResult run() would have returned.
+   */
+  stream(input: AgentInput, options: RunOptions = {}): AsyncGenerator<AgentStreamEvent, RunResult, void> {
+    return this.execute(input, options, true);
+  }
+
+  private async drive(generator: AsyncGenerator<AgentStreamEvent, RunResult, void>): Promise<RunResult> {
+    let next = await generator.next();
+    while (!next.done) {
+      next = await generator.next();
+    }
+    return next.value;
+  }
+
+  private async *execute(
+    input: AgentInput,
+    options: RunOptions,
+    streaming: boolean,
+  ): AsyncGenerator<AgentStreamEvent, RunResult, void> {
     const metadata = {
       ...(this.config.metadata ?? {}),
       ...(options.metadata ?? {}),
@@ -89,7 +131,9 @@ export class AgentRuntime {
         };
         this.events.emit("model.request", { runId, request });
 
-        const response = await this.callProvider(request);
+        const response = streaming
+          ? yield* this.streamProvider(request, runId, state.iteration)
+          : await this.callProvider(request);
         tracer.recordModelUsage(response.usage);
         this.events.emit("model.response", { runId, response });
 
@@ -100,13 +144,15 @@ export class AgentRuntime {
 
         if (response.handoff) {
           const output = await this.performHandoff(response.handoff, runId, metadata, tracer, state);
-          return await this.completeRun(output, state, tracer, options.sessionId, metadata);
+          const result = await this.completeRun(output, state, tracer, options.sessionId, metadata);
+          return yield* this.finish(result, streaming);
         }
 
         state.transition("tool_detection");
         const toolCalls = response.toolCalls ?? [];
         if (toolCalls.length === 0) {
-          return await this.completeRun(response.content, state, tracer, options.sessionId, metadata);
+          const result = await this.completeRun(response.content, state, tracer, options.sessionId, metadata);
+          return yield* this.finish(result, streaming);
         }
 
         for (const toolCall of toolCalls) {
@@ -142,11 +188,43 @@ export class AgentRuntime {
     }
   }
 
-  private async callProvider(request: ModelRequest) {
+  /** Yields the terminal stream event (when streaming) and returns the RunResult either way. */
+  private async *finish(
+    result: RunResult,
+    streaming: boolean,
+  ): AsyncGenerator<AgentStreamEvent, RunResult, void> {
+    if (streaming) {
+      yield { type: "completed", result };
+    }
+    return result;
+  }
+
+  private async callProvider(request: ModelRequest): Promise<ModelResponse> {
     try {
       return await this.config.provider.generate(request);
     } catch (error) {
       throw new ProviderError(`Provider "${this.config.provider.id}" failed to generate a response.`, {
+        provider: this.config.provider.id,
+        model: this.config.provider.model,
+      }, error);
+    }
+  }
+
+  private async *streamProvider(
+    request: ModelRequest,
+    runId: string,
+    iteration: number,
+  ): AsyncGenerator<AgentStreamEvent, ModelResponse, void> {
+    try {
+      const accumulator = accumulateModelStream(this.config.provider.stream(request));
+      let next = await accumulator.next();
+      while (!next.done) {
+        yield { type: "chunk", runId, iteration, delta: next.value.delta };
+        next = await accumulator.next();
+      }
+      return next.value;
+    } catch (error) {
+      throw new ProviderError(`Provider "${this.config.provider.id}" failed to stream a response.`, {
         provider: this.config.provider.id,
         model: this.config.provider.model,
       }, error);

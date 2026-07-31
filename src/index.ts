@@ -2,6 +2,7 @@ export * from "./core/agent";
 export * from "./core/agent-config";
 
 export * from "./runtime/agent-runtime";
+export * from "./runtime/model-stream-accumulator";
 export * from "./runtime/runtime-state";
 
 export * from "./providers/model-provider";

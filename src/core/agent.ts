@@ -1,6 +1,6 @@
 import { EventBus } from "../events/event-bus";
 import { PluginHost } from "../plugins/plugin-host";
-import { AgentRuntime } from "../runtime/agent-runtime";
+import { AgentRuntime, type AgentStreamEvent } from "../runtime/agent-runtime";
 import type { AgentConfig, AgentInput, RunOptions, RunResult } from "./agent-config";
 
 export class Agent {
@@ -39,6 +39,11 @@ export class Agent {
 
   run(input: AgentInput, options?: RunOptions): Promise<RunResult> {
     return this.runtime.run(input, options);
+  }
+
+  /** Same run loop as run(), but streams model text as it arrives; the last event carries the RunResult. */
+  stream(input: AgentInput, options?: RunOptions): AsyncGenerator<AgentStreamEvent, RunResult, void> {
+    return this.runtime.stream(input, options);
   }
 
   /** Runs every plugin's teardown() in reverse registration order. */

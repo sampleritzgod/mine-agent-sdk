@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Guardrails can now rewrite the value they check (`GuardrailResult.value`), not just allow/block it. Input-phase rewrites reach the model and session history; output-phase rewrites become `RunResult.output` and replace the persisted assistant message. Emits a new `guardrail.modified` event.
+- `HandoffContext` now includes `messages`: the full conversation so far (minus the caller's own transient instructions), so a receiving handler/agent can continue with the same context instead of only a short `input` string.
 
 ## `0.1.0`
 

@@ -99,7 +99,7 @@ export class AgentRuntime {
         }));
 
         if (response.handoff) {
-          const output = await this.performHandoff(response.handoff, runId, metadata, tracer);
+          const output = await this.performHandoff(response.handoff, runId, metadata, tracer, state);
           return await this.completeRun(output, state, tracer, options.sessionId, metadata);
         }
 
@@ -196,6 +196,7 @@ export class AgentRuntime {
     runId: string,
     metadata: Metadata,
     tracer: RunTracer,
+    state: RuntimeState,
   ): Promise<string> {
     this.events.emit("handoff.started", {
       runId,
@@ -203,7 +204,10 @@ export class AgentRuntime {
       ...(request.input !== undefined ? { input: request.input } : {}),
       ...(request.reason ? { reason: request.reason } : {}),
     });
-    const result = await this.handoffs.execute(request, runId, metadata);
+    const transferableMessages = state.messages.filter(
+      message => message.metadata?.[TRANSIENT_METADATA_KEY] !== true,
+    );
+    const result = await this.handoffs.execute(request, runId, metadata, transferableMessages);
     tracer.recordHandoff();
     this.events.emit("handoff.completed", {
       runId,

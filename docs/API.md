@@ -67,6 +67,28 @@ console.log(result.trace.toolCalls);
 
 Possible errors: `ProviderError`, `GuardrailError`, `MaxIterationsError`, `ToolExecutionError` surfaced through failed tool results, or handler-specific errors.
 
+## `agent.stream(input, options)`
+
+Description: Runs the same iterative loop as `agent.run()` — model call, tool detection, tool execution, store result, repeat — but drives each model step through `provider.stream()` instead of `provider.generate()`. Yields `AgentStreamChunkEvent`s as text arrives, and finishes with a single `AgentStreamCompletedEvent` carrying the exact `RunResult` that `agent.run()` would have returned for the same input. Tool-call turns and turns with no text content yield no chunk events for that turn. Guardrails, tracing, and event emissions (`run.started`, `model.request`, `model.response`, `tool.*`, `run.completed`/`run.failed`) all fire identically to `agent.run()`; an output guardrail rewrite lands in the completed event and in persisted session history, not in chunks already streamed to the caller.
+
+Parameters: Same as `agent.run(input, options)`.
+
+Returns: `AsyncGenerator<AgentStreamEvent, RunResult, void>`, where `AgentStreamEvent` is `{ type: "chunk", runId, iteration, delta }` or `{ type: "completed", result }`. Must be consumed (e.g. with `for await`) to drive the run — nothing executes until iterated.
+
+Example:
+
+```ts
+for await (const event of agent.stream("Summarize this")) {
+  if (event.type === "chunk") {
+    process.stdout.write(event.delta);
+  } else {
+    console.log("\n", event.result.trace.toolCalls, "tool calls");
+  }
+}
+```
+
+Possible errors: Same as `agent.run()` — `ProviderError` (including failures raised mid-stream by `provider.stream()`), `GuardrailError`, `MaxIterationsError`, handler-specific errors — surfaced by rejecting the pending `next()` call, so a `for await` loop throws exactly like an awaited `agent.run()` would.
+
 ## `createTool(tool)`
 
 Description: Identity helper that preserves zod input inference for tool definitions.

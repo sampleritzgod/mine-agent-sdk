@@ -34,6 +34,16 @@ export class ScriptedProvider implements ModelProvider {
 
   async *stream(request: ModelRequest): AsyncIterable<ModelStreamChunk> {
     const response = await this.generate(request);
+
+    for (const toolCall of response.toolCalls ?? []) {
+      yield {
+        id: response.id,
+        delta: "",
+        toolCallDelta: toolCall,
+        done: false,
+      };
+    }
+
     yield {
       id: response.id,
       delta: response.content,

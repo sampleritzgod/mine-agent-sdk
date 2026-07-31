@@ -216,16 +216,16 @@ Possible errors: Blocked guardrails throw `GuardrailError` and emit `guardrail.t
 
 ## `HandoffDefinition`
 
-Description: Named handler for delegating a run to another subsystem or agent.
+Description: Named handler for delegating a run to another subsystem or agent. The receiving handler gets the full conversation so far via `context.messages`, so it can pick up exactly where the caller left off.
 
 Parameters:
 
 - `name`
 - `description`
-- `execute(request, context)`
+- `execute(request, context)`: `context` has `runId`, `metadata`, and `messages` (the caller's conversation, excluding the caller's own transient instructions message).
 - `metadata`
 
-Returns: `HandoffResult`.
+Returns: `HandoffResult` with `output` and optional `metadata`.
 
 Example:
 
@@ -234,7 +234,11 @@ const billingHandoff = {
   name: "billing",
   description: "Routes billing questions.",
   metadata: {},
-  execute: request => ({ output: `billing:${request.input}` }),
+  async execute(request, context) {
+    const billingAgent = new Agent({ name: "billing-agent", instructions: "...", provider });
+    const result = await billingAgent.run(context.messages);
+    return { output: result.output };
+  },
 };
 ```
 

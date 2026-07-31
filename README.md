@@ -116,9 +116,22 @@ npm install
 npm test
 ```
 
+## Examples
+
+```bash
+npm run example:basic     # single tool call, end to end
+npm run example:tool-use  # multiple tools, retries, event logging
+npm run example:streaming # consuming ModelProvider.stream() directly
+npm run example:handoff   # one agent handing off full context to another
+```
+
+- [`examples/basic.ts`](examples/basic.ts)
+- [`examples/tool-use.ts`](examples/tool-use.ts)
+- [`examples/streaming.ts`](examples/streaming.ts)
+- [`examples/multi-agent-handoff.ts`](examples/multi-agent-handoff.ts)
+
 ## Documentation
 
 - [API docs](docs/API.md)
 - [Migration guide](docs/MIGRATION.md)
 - [Changelog](CHANGELOG.md)
-- [Examples](examples/basic.ts)

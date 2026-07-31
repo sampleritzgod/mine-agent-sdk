@@ -45,7 +45,11 @@
     "build": "tsup",
     "test": "node --import tsx --test tests/unit/*.test.ts tests/integration/*.test.ts tests/failure/*.test.ts tests/edge/*.test.ts tests/concurrency/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "example:basic": "tsx examples/basic.ts",
+    "example:tool-use": "tsx examples/tool-use.ts",
+    "example:streaming": "tsx examples/streaming.ts",
+    "example:handoff": "tsx examples/multi-agent-handoff.ts"
   },
   "dependencies": {
     "eventemitter3": "^5.0.1",

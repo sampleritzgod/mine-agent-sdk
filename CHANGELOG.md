@@ -6,6 +6,7 @@
 - `HandoffContext` now includes `messages`: the full conversation so far (minus the caller's own transient instructions), so a receiving handler/agent can continue with the same context instead of only a short `input` string.
 - `AgentPlugin` gained an optional `init(context)` hook (runs once after every plugin's `setup()`, with the full merged tool/guardrail/handoff/provider registry) and an optional `teardown(context)` hook, run via the new `agent.teardown()` in reverse registration order.
 - Added failure-path test coverage for tool timeout, retry exhaustion, provider errors, and malformed tool schema/arguments.
+- Added `examples/tool-use.ts`, `examples/streaming.ts`, and `examples/multi-agent-handoff.ts`, plus `npm run example:*` scripts for all four examples.
 
 ## `0.1.0`
 

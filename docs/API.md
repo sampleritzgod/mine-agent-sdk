@@ -189,7 +189,7 @@ Possible errors: Storage adapter implementations may throw IO-specific errors.
 
 ## `Guardrail`
 
-Description: Input or output policy hook.
+Description: Input or output policy hook that can block or rewrite the value flowing through a run.
 
 Parameters:
 
@@ -197,19 +197,22 @@ Parameters:
 - `phase`: `"input"` or `"output"`
 - `execute(value, context)`
 
-Returns: `GuardrailResult` with `allowed`, optional `reason`, and optional metadata.
+Returns: `GuardrailResult` with `allowed`, optional `reason`, optional `metadata`, and optional `value`. Setting `value` on an allowed result substitutes it for the checked value — an input guardrail's `value` reaches the model and session history, an output guardrail's `value` becomes `RunResult.output` and replaces the persisted assistant message. Guardrails in the same phase run in order, each seeing the previous guardrail's `value`.
 
 Example:
 
 ```ts
-const guardrail = {
-  name: "no-empty-output",
-  phase: "output",
-  execute: value => ({ allowed: String(value).length > 0 }),
+const redactCardNumbers = {
+  name: "redact-card-numbers",
+  phase: "input",
+  execute: value => ({
+    allowed: true,
+    value: String(value).replace(/\d{4}-\d{4}-\d{4}-\d{4}/g, "[redacted]"),
+  }),
 };
 ```
 
-Possible errors: Blocked guardrails throw `GuardrailError` and emit `guardrail.triggered`.
+Possible errors: Blocked guardrails throw `GuardrailError` and emit `guardrail.triggered`. Guardrails that set `value` emit `guardrail.modified` instead.
 
 ## `HandoffDefinition`
 

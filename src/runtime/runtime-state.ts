@@ -1,4 +1,4 @@
-import type { Message } from "../types/message";
+import type { Message, MessageRole } from "../types/message";
 
 export type RuntimePhase =
   | "input"
@@ -39,6 +39,17 @@ export class RuntimeState {
 
   addMessages(messages: Message[]): void {
     this.messages.push(...messages);
+  }
+
+  updateLastMessageContent(role: MessageRole, content: string): boolean {
+    for (let index = this.messages.length - 1; index >= 0; index -= 1) {
+      const message = this.messages[index];
+      if (message?.role === role) {
+        this.messages[index] = { ...message, content };
+        return true;
+      }
+    }
+    return false;
   }
 
   snapshot(): Readonly<{

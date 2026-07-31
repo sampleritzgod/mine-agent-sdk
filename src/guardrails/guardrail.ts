@@ -6,6 +6,8 @@ export interface GuardrailResult {
   allowed: boolean;
   reason?: string;
   metadata?: Metadata;
+  // Replacement for the checked value; downstream guardrails and the run see this instead.
+  value?: unknown;
 }
 
 export interface GuardrailContext {

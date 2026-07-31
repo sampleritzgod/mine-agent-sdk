@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Guardrails can now rewrite the value they check (`GuardrailResult.value`), not just allow/block it. Input-phase rewrites reach the model and session history; output-phase rewrites become `RunResult.output` and replace the persisted assistant message. Emits a new `guardrail.modified` event.
+
 ## `0.1.0`
 
 - Added TypeScript SDK scaffold.

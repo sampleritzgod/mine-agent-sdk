@@ -97,7 +97,7 @@ Minimum emitted events:
 - `tool.started`, `tool.finished`, `tool.failed`
 - `model.request`, `model.response`
 - `handoff.started`, `handoff.completed`
-- `guardrail.triggered`
+- `guardrail.triggered`, `guardrail.modified`
 
 ## Memory Layers
 

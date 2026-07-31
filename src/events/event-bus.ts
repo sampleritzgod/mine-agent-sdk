@@ -73,6 +73,13 @@ export interface GuardrailTriggeredEvent {
   metadata: Metadata;
 }
 
+export interface GuardrailModifiedEvent {
+  runId: string;
+  name: string;
+  phase: "input" | "output";
+  metadata: Metadata;
+}
+
 export interface SDKEvents {
   "run.started": RunStartedEvent;
   "run.completed": RunCompletedEvent;
@@ -85,6 +92,7 @@ export interface SDKEvents {
   "handoff.started": HandoffStartedEvent;
   "handoff.completed": HandoffCompletedEvent;
   "guardrail.triggered": GuardrailTriggeredEvent;
+  "guardrail.modified": GuardrailModifiedEvent;
 }
 
 export type EventName = keyof SDKEvents;

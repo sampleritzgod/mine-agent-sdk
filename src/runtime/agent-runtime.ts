@@ -75,9 +75,9 @@ export class AgentRuntime {
     });
 
     try {
-      const inputMessages = this.normalizeInput(input);
+      const rawInputMessages = this.normalizeInput(input);
+      const inputMessages = await this.guardrails.check("input", rawInputMessages, runId, metadata);
       state.addMessages(await this.prepareMessages(inputMessages, options.sessionId));
-      await this.guardrails.check("input", inputMessages, runId, metadata);
 
       while (state.iteration < this.maxIterations) {
         state.nextIteration();
@@ -221,21 +221,24 @@ export class AgentRuntime {
     metadata: Metadata,
   ): Promise<RunResult> {
     state.transition("final_answer");
-    await this.guardrails.check("output", output, state.runId, metadata);
+    const checkedOutput = await this.guardrails.check("output", output, state.runId, metadata);
+    if (checkedOutput !== output) {
+      state.updateLastMessageContent("assistant", checkedOutput);
+    }
     await this.persistMessages(sessionId, state.messages);
 
     state.transition("trace");
-    const trace = tracer.complete(output);
+    const trace = tracer.complete(checkedOutput);
     state.transition("completed");
     this.events.emit("run.completed", {
       runId: state.runId,
-      output,
+      output: checkedOutput,
       trace,
     });
 
     return {
       runId: state.runId,
-      output,
+      output: checkedOutput,
       messages: [...state.messages],
       trace,
     };

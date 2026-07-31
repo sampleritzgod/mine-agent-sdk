@@ -17,13 +17,15 @@ export class GuardrailRunner {
     this.events = options.events;
   }
 
-  async check(phase: GuardrailPhase, value: unknown, runId: string, metadata: Metadata = {}): Promise<void> {
+  async check<T>(phase: GuardrailPhase, value: T, runId: string, metadata: Metadata = {}): Promise<T> {
+    let current = value;
+
     for (const guardrail of this.guardrails) {
       if (guardrail.phase !== phase) {
         continue;
       }
 
-      const result = await guardrail.execute(value, {
+      const result = await guardrail.execute(current, {
         runId,
         phase,
         metadata,
@@ -44,6 +46,18 @@ export class GuardrailRunner {
           metadata: result.metadata ?? {},
         });
       }
+
+      if (result.value !== undefined) {
+        current = result.value as T;
+        this.events?.emit("guardrail.modified", {
+          runId,
+          name: guardrail.name,
+          phase,
+          metadata: result.metadata ?? {},
+        });
+      }
     }
+
+    return current;
   }
 }

@@ -246,26 +246,36 @@ Possible errors: Missing targets throw `ConfigurationError`. Handler failures fa
 
 ## `AgentPlugin`
 
-Description: Extension point for registering tools, guardrails, handoffs, or replacing the provider before agent construction.
+Description: Extension point with a full lifecycle: register → init → hook into events/runtime → teardown.
 
 Parameters:
 
 - `name`
 - `version`
-- `setup(context)`
+- `setup(context)`: Registers tools, guardrails, handoffs, or replaces the provider. `context.events` is the agent's real `EventBus`, so a plugin can also subscribe to runtime events here.
+- `init?(context)`: Optional. Runs once after every plugin's `setup()` has finished. `context` carries the full merged `tools`/`guardrails`/`handoffs`/`provider` from all plugins, not just this one — useful for cross-cutting setup that needs to see the final registry.
+- `teardown?(context)`: Optional. Runs when `agent.teardown()` is called, in reverse registration order (last plugin set up tears down first).
 
-Returns: Nothing or a promise.
+Returns: Nothing or a promise, for each hook.
 
 Example:
 
 ```ts
-const plugin = {
-  name: "math-tools",
+const auditPlugin = {
+  name: "audit",
   setup(ctx) {
     ctx.registerTool(addTool);
   },
+  init(ctx) {
+    console.log(`agent has ${ctx.tools.length} tools registered`);
+  },
+  teardown() {
+    console.log("audit plugin cleaned up");
+  },
 };
-const agent = await Agent.create({ name: "agent", provider, plugins: [plugin] });
+const agent = await Agent.create({ name: "agent", provider, plugins: [auditPlugin] });
+await agent.run("hi");
+await agent.teardown();
 ```
 
-Possible errors: Plugin setup errors reject `Agent.create`.
+Possible errors: Errors from `setup()` or `init()` reject `Agent.create`. Errors from `teardown()` reject `agent.teardown()`.

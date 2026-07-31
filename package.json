@@ -1,0 +1,60 @@
+{
+  "name": "mine-agent-sdk",
+  "version": "0.1.0",
+  "description": "A production-oriented TypeScript AI agent SDK with composable providers, tools, memory, guardrails, tracing, handoffs, and plugins.",
+  "license": "MIT",
+  "author": "Abhay Maheta",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sampleritzgod/mine-agent-sdk.git"
+  },
+  "homepage": "https://github.com/sampleritzgod/mine-agent-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/sampleritzgod/mine-agent-sdk/issues"
+  },
+  "keywords": [
+    "agent",
+    "agents",
+    "ai",
+    "llm",
+    "sdk",
+    "typescript",
+    "openai",
+    "anthropic",
+    "tools",
+    "orchestration"
+  ],
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "docs"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/tests/unit/*.test.js dist/tests/integration/*.test.js dist/tests/failure/*.test.js dist/tests/edge/*.test.js dist/tests/concurrency/*.test.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "eventemitter3": "^5.0.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

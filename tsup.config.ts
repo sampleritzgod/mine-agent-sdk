@@ -4,6 +4,7 @@ export default defineConfig({
   entry: {
     index: "src/index.ts",
     "providers/openai-provider": "src/providers/openai-provider.ts",
+    "providers/anthropic-provider": "src/providers/anthropic-provider.ts",
   },
   format: ["cjs", "esm"],
   dts: true,
@@ -12,7 +13,8 @@ export default defineConfig({
   splitting: false,
   target: "es2022",
   outDir: "dist",
-  // openai is a peer dependency of the openai-provider entry only; keep it
-  // out of the bundle so consumers who never import it don't need it installed.
-  external: ["openai"],
+  // Each real provider's SDK is a peer dependency of its own entry only; keep
+  // them out of the bundle so consumers who never import a provider don't
+  // need its SDK installed.
+  external: ["openai", "@anthropic-ai/sdk"],
 });

@@ -204,6 +204,40 @@ const result = await agent.run("Hello");
 
 Possible errors: Network/API errors from the `openai` SDK propagate out of `generate()`/`stream()` and are wrapped in `ProviderError` by `AgentRuntime`. Requires `openai` `^4.20.0 || ^5.0.0 || ^6.0.0` installed (`openai@7` needs Node 22+, newer than this SDK's own `engines.node: >=20`).
 
+## `AnthropicProvider`
+
+Description: Real `ModelProvider` backed by the `@anthropic-ai/sdk` SDK. Import from the `mine-agent-sdk/providers/anthropic` subpath, not the root package, for the same optional-peer-dependency reason as `OpenAIProvider`.
+
+Parameters:
+
+- `new AnthropicProvider({ model, apiKey?, baseURL?, maxTokens?, client? })`: `apiKey` defaults to `ANTHROPIC_API_KEY`. `maxTokens` defaults to `4096` — Anthropic requires `max_tokens` on every request, unlike OpenAI where it's optional. `client` overrides construction entirely, same test-injection use as `OpenAIProvider`.
+
+Behavior (differences from `OpenAIProvider` driven by real API shape differences, not arbitrary choices):
+
+- `SystemMessage`s are collected and sent via the top-level `system` param — Anthropic's `messages` array has no system role.
+- Consecutive `ToolMessage`s are merged into a single Anthropic `user` message containing multiple `tool_result` content blocks, because Anthropic requires strict `user`/`assistant` alternation (you can't send one `tool` message per result the way OpenAI allows).
+- `request.responseFormat: {type:"json_schema", name, schema}` has no native equivalent, so it's implemented as a forced tool call: a synthetic tool named `name` with `input_schema: schema` is added and `tool_choice` is forced to it; the resulting `tool_use.input` is JSON-stringified into `ModelResponse.content` instead of appearing in `toolCalls`. Throws `ConfigurationError` if `name` collides with a real registered tool. `{type:"json_object"}` and `{type:"text"}` are accepted but not specially enforced (Anthropic has no grammar-level JSON mode).
+- `UserMessage.images` maps to Anthropic `image` content blocks — a `data:` URI becomes a `{type:"base64", media_type, data}` source, anything else becomes `{type:"url", url}`.
+- Streaming reconstructs the same way as `OpenAIProvider` (stable `id`/`name` carried across `input_json_delta` fragments); a structured-output tool call's fragments are re-emitted as plain text `delta`s instead of `toolCallDelta`s, matching the non-streaming unwrap behavior.
+- `supportsTools`/`supportsStructuredOutput`/`supportsImages` all return `true`; `supportsAudio` returns `false`.
+
+Returns: A `ModelProvider` usable anywhere one is accepted (`AgentConfig.provider`).
+
+Example:
+
+```ts
+import { Agent } from "mine-agent-sdk";
+import { AnthropicProvider } from "mine-agent-sdk/providers/anthropic";
+
+const agent = new Agent({
+  name: "assistant",
+  provider: new AnthropicProvider({ model: "claude-3-5-sonnet-latest" }),
+});
+const result = await agent.run("Hello");
+```
+
+Possible errors: `ConfigurationError` for a `responseFormat` name collision (see above). Network/API errors from `@anthropic-ai/sdk` propagate out of `generate()`/`stream()` and are wrapped in `ProviderError` by `AgentRuntime`. Requires `@anthropic-ai/sdk` `^0.30.0` installed.
+
 ## `zodToJsonSchema`
 
 Description: Converts a zod schema into a JSON Schema object, used internally by provider adapters to build a tool's `parameters`/`input_schema` payload.

@@ -85,20 +85,25 @@ Each run records an explicit `RuntimeState`, emits lifecycle events, stores tool
 The core package only ever needs `zod` and `eventemitter3` — real model providers live behind subpath exports so their SDKs stay optional peer dependencies, not part of every install.
 
 ```bash
-npm install openai   # only needed if you use OpenAIProvider
+npm install openai              # only needed if you use OpenAIProvider
+npm install @anthropic-ai/sdk   # only needed if you use AnthropicProvider
 ```
 
 ```ts
 import { Agent } from "mine-agent-sdk";
 import { OpenAIProvider } from "mine-agent-sdk/providers/openai";
+import { AnthropicProvider } from "mine-agent-sdk/providers/anthropic";
 
 const agent = new Agent({
   name: "assistant",
   provider: new OpenAIProvider({ model: "gpt-4o-mini" }), // reads OPENAI_API_KEY by default
+  // or: new AnthropicProvider({ model: "claude-3-5-sonnet-latest" }) // reads ANTHROPIC_API_KEY by default
 });
 ```
 
 `OpenAIProvider` maps SDK messages/tools/responses to and from the OpenAI Chat Completions API: tool calls, streaming (including reconstructing fragmented tool-call arguments across chunks), `responseFormat` (`text` / `json_object` / `json_schema`), and image inputs via `UserMessage.images`. It supports `openai` `^4.20.0 || ^5.0.0 || ^6.0.0` — `openai@7` requires Node 22+, which is newer than this SDK's own `engines.node: >=20`, so pin below `7.0.0` if you're on Node 20 or 21.
+
+`AnthropicProvider` maps the same SDK types to and from the Anthropic Messages API. Notable differences from OpenAI it handles for you: system messages become the top-level `system` param (Anthropic has no system role in `messages`), consecutive tool-result messages are merged into one `user` message with multiple `tool_result` blocks (Anthropic requires strict user/assistant alternation), and `responseFormat: {type:"json_schema", ...}` is implemented via a forced tool call (Anthropic has no native structured-output param) whose result is unwrapped back into plain text content rather than surfaced as a tool call. Requires `@anthropic-ai/sdk` `^0.30.0`. `max_tokens` defaults to `4096` (Anthropic requires it on every request) — override via `new AnthropicProvider({ model, maxTokens })`.
 
 ## Streaming
 
@@ -160,6 +165,7 @@ npm run example:tool-use  # multiple tools, retries, event logging
 npm run example:streaming # ModelProvider.stream() directly, and agent.stream() driving the tool loop
 npm run example:handoff   # one agent handing off full context to another
 npm run example:openai    # real OpenAIProvider request (needs OPENAI_API_KEY + npm install openai)
+npm run example:anthropic # real AnthropicProvider request (needs ANTHROPIC_API_KEY + npm install @anthropic-ai/sdk)
 ```
 
 - [`examples/basic.ts`](examples/basic.ts)
@@ -167,6 +173,7 @@ npm run example:openai    # real OpenAIProvider request (needs OPENAI_API_KEY + 
 - [`examples/streaming.ts`](examples/streaming.ts)
 - [`examples/multi-agent-handoff.ts`](examples/multi-agent-handoff.ts)
 - [`examples/openai-provider.ts`](examples/openai-provider.ts)
+- [`examples/anthropic-provider.ts`](examples/anthropic-provider.ts)
 
 ## Documentation
 

@@ -21,6 +21,7 @@
     "typescript",
     "openai",
     "anthropic",
+    "gemini",
     "tools",
     "orchestration"
   ],
@@ -42,6 +43,11 @@
       "types": "./dist/providers/anthropic-provider.d.ts",
       "import": "./dist/providers/anthropic-provider.mjs",
       "require": "./dist/providers/anthropic-provider.js"
+    },
+    "./providers/gemini": {
+      "types": "./dist/providers/gemini-provider.d.ts",
+      "import": "./dist/providers/gemini-provider.mjs",
+      "require": "./dist/providers/gemini-provider.js"
     }
   },
   "files": [
@@ -61,7 +67,8 @@
     "example:streaming": "tsx examples/streaming.ts",
     "example:handoff": "tsx examples/multi-agent-handoff.ts",
     "example:openai": "tsx examples/openai-provider.ts",
-    "example:anthropic": "tsx examples/anthropic-provider.ts"
+    "example:anthropic": "tsx examples/anthropic-provider.ts",
+    "example:gemini": "tsx examples/gemini-provider.ts"
   },
   "dependencies": {
     "eventemitter3": "^5.0.1",
@@ -69,6 +76,7 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
+    "@google/genai": "^2.15.0",
     "@types/node": "^22.13.0",
     "openai": "^6.49.0",
     "tsup": "^8.5.1",
@@ -76,11 +84,15 @@
     "typescript": "^5.8.0"
   },
   "peerDependencies": {
-    "openai": "^4.20.0 || ^5.0.0 || ^6.0.0",
-    "@anthropic-ai/sdk": "^0.30.0"
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@google/genai": "^2.0.0",
+    "openai": "^4.20.0 || ^5.0.0 || ^6.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@google/genai": {
       "optional": true
     },
     "openai": {

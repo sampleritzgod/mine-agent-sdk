@@ -238,6 +238,40 @@ const result = await agent.run("Hello");
 
 Possible errors: `ConfigurationError` for a `responseFormat` name collision (see above). Network/API errors from `@anthropic-ai/sdk` propagate out of `generate()`/`stream()` and are wrapped in `ProviderError` by `AgentRuntime`. Requires `@anthropic-ai/sdk` `^0.30.0` installed.
 
+## `GeminiProvider`
+
+Description: Real `ModelProvider` backed by Google's `@google/genai` SDK (the current unified SDK — the older `@google/generative-ai` package is unmaintained). Import from the `mine-agent-sdk/providers/gemini` subpath, same optional-peer-dependency reasoning as the other providers.
+
+Parameters:
+
+- `new GeminiProvider({ model, apiKey?, client? })`: `apiKey` defaults to `GEMINI_API_KEY` or `GOOGLE_API_KEY` (the underlying SDK checks both). `client` overrides construction entirely, same test-injection use as the other providers.
+
+Behavior (differences driven by Gemini's actual API shape):
+
+- Content roles are `user`/`model` — there's no `assistant` role. `SystemMessage`s are collected into the top-level `systemInstruction` config.
+- Consecutive `ToolMessage`s are merged into a single `user`-role `Content` with multiple `functionResponse` parts, matched by tool **name** rather than an id — Gemini's `FunctionCall.id` is optional and often absent, so this provider generates a synthetic id (via the SDK's internal `createId`) whenever Gemini omits one, purely so `ToolCall.id` is always populated; it isn't echoed back to Gemini.
+- `request.responseFormat` maps natively: `json_schema` → `responseMimeType: "application/json"` + `responseJsonSchema: schema`; `json_object` → `responseMimeType: "application/json"` alone; `text` is a no-op. No forced-tool-call workaround needed (unlike `AnthropicProvider`) — the JSON just streams as ordinary text.
+- `UserMessage.images`: a `data:` URI becomes an `inlineData` part; any other URL becomes a `fileData` part with a best-effort MIME type guessed from the file extension (defaults to `image/png` if unrecognized).
+- `stream()` iterates `generateContentStream()`, where each chunk is a full `GenerateContentResponse` whose `.text`/`.functionCalls` represent only that chunk's incremental content (confirmed by the SDK's own docs/examples) — and Gemini's base API delivers each function call complete in one chunk rather than as argument fragments, so (unlike OpenAI/Anthropic) no cross-chunk argument concatenation is needed.
+- `supportsTools`/`supportsStructuredOutput`/`supportsImages` all return `true`; `supportsAudio` returns `false`.
+
+Returns: A `ModelProvider` usable anywhere one is accepted (`AgentConfig.provider`).
+
+Example:
+
+```ts
+import { Agent } from "mine-agent-sdk";
+import { GeminiProvider } from "mine-agent-sdk/providers/gemini";
+
+const agent = new Agent({
+  name: "assistant",
+  provider: new GeminiProvider({ model: "gemini-2.5-flash" }),
+});
+const result = await agent.run("Hello");
+```
+
+Possible errors: Network/API errors from `@google/genai` propagate out of `generate()`/`stream()` and are wrapped in `ProviderError` by `AgentRuntime`. Requires `@google/genai` `^2.0.0` installed.
+
 ## `zodToJsonSchema`
 
 Description: Converts a zod schema into a JSON Schema object, used internally by provider adapters to build a tool's `parameters`/`input_schema` payload.

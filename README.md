@@ -1,5 +1,9 @@
 # Mine Agent SDK
 
+[![CI](https://github.com/sampleritzgod/mine-agent-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/sampleritzgod/mine-agent-sdk/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/mine-agent-sdk.svg)](https://www.npmjs.com/package/mine-agent-sdk)
+[![license](https://img.shields.io/npm/l/mine-agent-sdk.svg)](LICENSE)
+
 Mine Agent SDK is a TypeScript-first AI agent runtime built around small, swappable contracts: model providers, zod-validated tools, typed events, persistent sessions, storage adapters, guardrails, handoffs, tracing, and plugins.
 
 The SDK is intentionally original and dependency-light. Runtime code depends only on `eventemitter3` for events and `zod` for schemas. Provider adapters can be added without changing the runtime.

@@ -191,3 +191,5 @@ npm run example:gemini    # real GeminiProvider request (needs GEMINI_API_KEY + 
 - [API docs](docs/API.md)
 - [Migration guide](docs/MIGRATION.md)
 - [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)

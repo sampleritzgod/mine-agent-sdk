@@ -1,0 +1,19 @@
+{
+  "name": "example-multi-agent-handoff",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "One agent handing off full conversation context to another.",
+  "scripts": {
+    "start": "tsx index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "mine-agent-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.8.0"
+  }
+}

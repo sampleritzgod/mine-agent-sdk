@@ -1,105 +1,47 @@
 {
-  "name": "mine-agent-sdk",
-  "version": "0.1.0",
-  "description": "A production-oriented TypeScript AI agent SDK with composable providers, tools, memory, guardrails, tracing, handoffs, and plugins.",
+  "name": "mine-agent-sdk-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo for mine-agent-sdk — a production-oriented TypeScript agent SDK.",
   "license": "MIT",
-  "author": "Abhay Maheta",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/sampleritzgod/mine-agent-sdk.git"
-  },
-  "homepage": "https://github.com/sampleritzgod/mine-agent-sdk#readme",
-  "bugs": {
-    "url": "https://github.com/sampleritzgod/mine-agent-sdk/issues"
-  },
-  "keywords": [
-    "agent",
-    "agents",
-    "ai",
-    "llm",
-    "sdk",
-    "typescript",
-    "openai",
-    "anthropic",
-    "gemini",
-    "tools",
-    "orchestration"
-  ],
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    },
-    "./providers/openai": {
-      "types": "./dist/providers/openai-provider.d.ts",
-      "import": "./dist/providers/openai-provider.mjs",
-      "require": "./dist/providers/openai-provider.js"
-    },
-    "./providers/anthropic": {
-      "types": "./dist/providers/anthropic-provider.d.ts",
-      "import": "./dist/providers/anthropic-provider.mjs",
-      "require": "./dist/providers/anthropic-provider.js"
-    },
-    "./providers/gemini": {
-      "types": "./dist/providers/gemini-provider.d.ts",
-      "import": "./dist/providers/gemini-provider.mjs",
-      "require": "./dist/providers/gemini-provider.js"
-    }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md",
-    "docs"
-  ],
-  "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "tsup",
-    "test": "node --import tsx --test tests/unit/*.test.ts tests/integration/*.test.ts tests/failure/*.test.ts tests/edge/*.test.ts tests/concurrency/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "npm run build",
-    "example:basic": "tsx examples/basic.ts",
-    "example:tool-use": "tsx examples/tool-use.ts",
-    "example:streaming": "tsx examples/streaming.ts",
-    "example:handoff": "tsx examples/multi-agent-handoff.ts",
-    "example:openai": "tsx examples/openai-provider.ts",
-    "example:anthropic": "tsx examples/anthropic-provider.ts",
-    "example:gemini": "tsx examples/gemini-provider.ts"
-  },
-  "dependencies": {
-    "eventemitter3": "^5.0.1",
-    "zod": "^3.25.0"
-  },
-  "devDependencies": {
-    "@anthropic-ai/sdk": "^0.65.0",
-    "@google/genai": "^2.15.0",
-    "@types/node": "^22.13.0",
-    "openai": "^6.49.0",
-    "tsup": "^8.5.1",
-    "tsx": "^4.23.1",
-    "typescript": "^5.8.0"
-  },
-  "peerDependencies": {
-    "@anthropic-ai/sdk": "^0.30.0",
-    "@google/genai": "^2.0.0",
-    "openai": "^4.20.0 || ^5.0.0 || ^6.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "@google/genai": {
-      "optional": true
-    },
-    "openai": {
-      "optional": true
-    }
-  },
+  "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "test:watch": "pnpm --filter mine-agent-sdk test:watch",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,mdx,css,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,mdx,css,yml,yaml}\"",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "web": "pnpm --filter web dev",
+    "example:basic": "pnpm --filter example-basic start",
+    "example:tool-use": "pnpm --filter example-tool-use start",
+    "example:streaming": "pnpm --filter example-streaming start",
+    "example:handoff": "pnpm --filter example-multi-agent-handoff start",
+    "example:openai": "pnpm --filter example-openai-provider start",
+    "example:anthropic": "pnpm --filter example-anthropic-provider start",
+    "example:gemini": "pnpm --filter example-gemini-provider start",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build --filter=mine-agent-sdk && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.1",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.13.0",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.8.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.8",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.65.0"
   }
 }

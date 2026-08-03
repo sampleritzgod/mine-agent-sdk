@@ -1,0 +1,21 @@
+{
+  "name": "example-anthropic-provider",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Real AnthropicProvider request (needs ANTHROPIC_API_KEY).",
+  "scripts": {
+    "start": "tsx index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "mine-agent-sdk": "workspace:*",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.8.0"
+  }
+}

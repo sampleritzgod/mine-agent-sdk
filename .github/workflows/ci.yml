@@ -3,45 +3,118 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: ["20.x", "22.x"]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm pack --dry-run
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  DO_NOT_TRACK: 1
 
-  # Publishes to npm when a v* tag is pushed (e.g. `git tag v0.1.0 && git push --tags`).
-  # Requires an NPM_TOKEN repo secret (an npm automation token) to be configured first.
-  publish:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+jobs:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
-          cache: npm
-          registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          node-version-file: ".nvmrc"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Validate package exports (publint + are-the-types-wrong)
+        run: pnpm --filter mine-agent-sdk run check:exports
+      - name: Assert no provider SDK is a hard dependency of the core package
+        run: |
+          node -e "
+            const pkg = require('./packages/core/package.json');
+            const deps = Object.keys(pkg.dependencies || {});
+            const forbidden = deps.filter(d => ['openai', '@anthropic-ai/sdk', '@google/genai'].includes(d));
+            if (forbidden.length > 0) {
+              console.error('Provider SDKs must stay optional peer dependencies, not hard dependencies:', forbidden);
+              process.exit(1);
+            }
+            console.log('OK: no provider SDK is a hard dependency of packages/core.');
+          "
+
+  smoke-test-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter mine-agent-sdk build
+      - name: Pack and install into a scratch consumer project
+        run: |
+          set -e
+          cd packages/core
+          npm pack
+          TARBALL="$(pwd)/$(ls mine-agent-sdk-*.tgz)"
+          mkdir -p /tmp/consumer
+          cd /tmp/consumer
+          npm init -y >/dev/null
+          npm install "$TARBALL" zod >/dev/null
+          cat > check.mjs << 'EOF'
+          import { Agent, ScriptedProvider, createTool } from "mine-agent-sdk";
+          import { z } from "zod";
+
+          const add = createTool({
+            name: "add",
+            description: "Adds two numbers.",
+            schema: z.object({ a: z.number(), b: z.number() }),
+            timeout: 1000,
+            retry: { attempts: 1 },
+            metadata: {},
+            execute: (input) => input.a + input.b,
+          });
+
+          const provider = new ScriptedProvider([
+            { id: "s1", content: "", toolCalls: [{ id: "c1", name: "add", arguments: { a: 2, b: 3 } }] },
+            { id: "s2", content: "The answer is 5." },
+          ]);
+
+          const agent = new Agent({ name: "smoke-test", provider, tools: [add] });
+          const result = await agent.run("Add 2 and 3.");
+
+          if (result.output !== "The answer is 5.") {
+            throw new Error(`Unexpected output: ${result.output}`);
+          }
+          console.log("Smoke test passed:", result.output);
+          EOF
+          node check.mjs
+      - name: Assert the installed package pulls in no provider SDK
+        run: |
+          cd /tmp/consumer
+          node -e "
+            const { execSync } = require('child_process');
+            let output;
+            try {
+              output = execSync('npm ls openai @anthropic-ai/sdk @google/genai --json', { encoding: 'utf8' });
+            } catch (err) {
+              output = err.stdout;
+            }
+            const deps = Object.keys(JSON.parse(output).dependencies || {});
+            if (deps.length > 0) {
+              console.error('Provider SDKs leaked into consumer install tree:', deps);
+              process.exit(1);
+            }
+            console.log('OK: no provider SDK present in the consumer install tree.');
+          "
